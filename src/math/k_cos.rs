@@ -53,10 +53,28 @@ const C6: f64 = -1.13596475577881948265e-11; /* 0xBDA8FAE9, 0xBE8838D4 */
 //         any extra precision in w.
 #[cfg_attr(all(test, assert_no_panic), no_panic::no_panic)]
 pub(crate) fn k_cos(x: f64, y: f64) -> f64 {
+    let ix = (f64::to_bits(x) >> 32) as u32 & 0x7fffffff;
+    if ix < 0x3e400000			/* |x| < 2**-27 */
+	    { if (x as i32) == 0 { return x; }}		/* generate inexact */
+    
     let z = x * x;
-    let w = z * z;
-    let r = z * (C1 + z * (C2 + z * C3)) + w * w * (C4 + z * (C5 + z * C6));
+    let r  = z * (C1 + z * (C2 + z * (C3 + z * (C4 + z * (C5 + z * C6)))));
+    if ix < 0x3FD33333 { 			/* if |x| < 0.3 */ 
+	    return 1.0 - (0.5*z - (z*r - x*y));
+	} else {
+        let qx = if ix > 0x3fe90000 {		/* x > 0.78125 */
+		    0.28125
+	    } else {
+            // INSERT_WORDS(qx,ix-0x00200000,0);	/* x/4 */
+            f64::from_bits(((ix - 0x00200000) as u64) << 32 + 0)
+	    };
+	    let hz = 0.5*z - qx;
+	    let a  = 1.0 - qx;
+	    return a - (hz - (z*r-x*y));
+	}
+
+    /*
     let hz = 0.5 * z;
     let w = 1.0 - hz;
-    w + (((1.0 - w) - hz) + (z * r - x * y))
+    w + (((1.0 - w) - hz) + (z * r - x * y)) */
 }

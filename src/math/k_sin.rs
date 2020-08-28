@@ -45,10 +45,15 @@ const S6: f64 = 1.58969099521155010221e-10; /* 0x3DE5D93A, 0x5ACFD57C */
 //              sin(x) = x + (S1*x + (x *(r-y/2)+y))
 #[cfg_attr(all(test, assert_no_panic), no_panic::no_panic)]
 pub(crate) fn k_sin(x: f64, y: f64, iy: i32) -> f64 {
+    /* High word of x. */
+    let ix = (f64::to_bits(x) >> 32) as u32 & 0x7fffffff;
+    if ix < 0x3e400000			/* |x| < 2**-27 */
+	    { if (x as i32) == 0 { return x; }}		/* generate inexact */
+    
     let z = x * x;
-    let w = z * z;
-    let r = S2 + z * (S3 + z * S4) + z * w * (S5 + z * S6);
     let v = z * x;
+    let r =  S2 + z * (S3 + z * (S4 + z * (S5 + z * S6)));
+    
     if iy == 0 {
         x + v * (S1 + z * r)
     } else {
